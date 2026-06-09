@@ -27,20 +27,25 @@ async function enrichWithRelations(c: any, items: any[]) {
   const recruiterMap = new Map(recruiters.map((x: any) => [x.id, x]))
 
   return items.map(item => {
-    const contact = contactMap.get(item.contactId || item.kandidaat)
+    // For opportunities, contactId is the hiring manager. For placements, kandidaat is candidate, contactId is hiring manager.
+    const clientContact = contactMap.get(item.contactId)
+    const candidateContact = contactMap.get(item.kandidaat)
+    // fallback if contactId wasn't found but candidate was? Only for fields that share it.
     const recruiter = recruiterMap.get(item.recruiterId || item.eigenaar)
     const company = companyMap.get(item.accountId || item.clientId || item.organisatieId)
     
     const fixEncoding = (str: string | undefined) => str ? str.replace(/Brnos/g, 'Bérénos').replace(/B.r.nos/g, 'Bérénos') : str;
+    const getName = (c: any) => c ? fixEncoding(c.name || [c.firstName, c.lastName].filter(Boolean).join(' ')) : undefined;
 
     return {
       ...item,
       client: company?.name || item.client || item.organisatie,
-      contactNaam: contact ? fixEncoding(contact.name || [contact.firstName, contact.lastName].filter(Boolean).join(' ')) : undefined,
-      contactMobiel: contact?.mobilePhone,
+      contactNaam: getName(clientContact) || getName(candidateContact), // Fallback for Opportunities if they put it in kandidaat
+      contactMobiel: clientContact?.mobilePhone || item.contactMobiel,
+      mobielKandidaat: candidateContact?.mobilePhone || item.mobielKandidaat,
       recruiterNaam: fixEncoding(recruiter?.name) || item.eigenaar,
       eigenaar: fixEncoding(recruiter?.name) || item.eigenaar,
-      kandidaat: contact ? fixEncoding(contact.name || [contact.firstName, contact.lastName].filter(Boolean).join(' ')) : item.kandidaat,
+      kandidaat: getName(candidateContact) || item.kandidaat,
       organisatie: company?.name || item.organisatie,
       companyName: company?.name
     }
