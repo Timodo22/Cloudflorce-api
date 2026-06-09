@@ -18,7 +18,7 @@ async function enrichWithRelations(c: any, items: any[]) {
   if (!items.length) return items;
   
   // Very simplistic "JOIN" in memory for speed (in a real scenario, use actual SQL JOINs)
-  const { results: contacts } = await c.env.DB.prepare(`SELECT id, name, mobilePhone FROM contacts`).all()
+  const { results: contacts } = await c.env.DB.prepare(`SELECT id, name, firstName, lastName, mobilePhone FROM contacts`).all()
   const { results: companies } = await c.env.DB.prepare(`SELECT id, name FROM companies`).all()
   const { results: recruiters } = await c.env.DB.prepare(`SELECT id, name FROM people`).all()
 
@@ -33,7 +33,8 @@ async function enrichWithRelations(c: any, items: any[]) {
     
     return {
       ...item,
-      contactNaam: contact?.name,
+      client: company?.name || item.client,
+      contactNaam: contact ? (contact.name || [contact.firstName, contact.lastName].filter(Boolean).join(' ')) : undefined,
       contactMobiel: contact?.mobilePhone,
       recruiterNaam: recruiter?.name,
       companyName: company?.name
@@ -117,7 +118,11 @@ app.delete('/api/placements/:id', withErrorHandling(async (c: any) => {
 
 // ── Contacts ──────────────────────────────────────────────────────────────
 app.get('/api/contacts', withErrorHandling(async (c: any) => {
-  const { results } = await c.env.DB.prepare(`SELECT * FROM contacts ORDER BY name ASC`).all()
+  const { results } = await c.env.DB.prepare(`
+    SELECT *, COALESCE(NULLIF(name, ''), trim(COALESCE(firstName, '') || ' ' || COALESCE(lastName, ''))) AS name 
+    FROM contacts 
+    ORDER BY name ASC
+  `).all()
   const enriched = await enrichWithRelations(c, results)
   return c.json(enriched)
 }))
