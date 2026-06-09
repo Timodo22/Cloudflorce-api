@@ -27,16 +27,21 @@ async function enrichWithRelations(c: any, items: any[]) {
   const recruiterMap = new Map(recruiters.map((x: any) => [x.id, x]))
 
   return items.map(item => {
-    const contact = contactMap.get(item.contactId)
-    const recruiter = recruiterMap.get(item.recruiterId)
+    const contact = contactMap.get(item.contactId || item.kandidaat)
+    const recruiter = recruiterMap.get(item.recruiterId || item.eigenaar)
     const company = companyMap.get(item.accountId || item.clientId || item.organisatieId)
     
+    const fixEncoding = (str: string | undefined) => str ? str.replace(/Brnos/g, 'Bérénos').replace(/B.r.nos/g, 'Bérénos') : str;
+
     return {
       ...item,
-      client: company?.name || item.client,
-      contactNaam: contact ? (contact.name || [contact.firstName, contact.lastName].filter(Boolean).join(' ')) : undefined,
+      client: company?.name || item.client || item.organisatie,
+      contactNaam: contact ? fixEncoding(contact.name || [contact.firstName, contact.lastName].filter(Boolean).join(' ')) : undefined,
       contactMobiel: contact?.mobilePhone,
-      recruiterNaam: recruiter?.name,
+      recruiterNaam: fixEncoding(recruiter?.name) || item.eigenaar,
+      eigenaar: fixEncoding(recruiter?.name) || item.eigenaar,
+      kandidaat: contact ? fixEncoding(contact.name || [contact.firstName, contact.lastName].filter(Boolean).join(' ')) : item.kandidaat,
+      organisatie: company?.name || item.organisatie,
       companyName: company?.name
     }
   })
